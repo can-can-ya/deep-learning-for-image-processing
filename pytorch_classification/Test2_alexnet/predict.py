@@ -18,7 +18,7 @@ def main():
          transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
     # load image
-    img_path = "../tulip.jpg"
+    img_path = "dandelion.jpg"
     assert os.path.exists(img_path), "file: '{}' dose not exist.".format(img_path)
     img = Image.open(img_path)
 
@@ -34,6 +34,7 @@ def main():
 
     with open(json_path, "r") as f:
         class_indict = json.load(f)
+        print(class_indict)
 
     # create model
     model = AlexNet(num_classes=5).to(device)

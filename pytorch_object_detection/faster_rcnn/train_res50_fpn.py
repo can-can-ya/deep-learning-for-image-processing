@@ -10,6 +10,10 @@ from my_dataset import VOCDataSet
 from train_utils import GroupedBatchSampler, create_aspect_ratio_groups
 from train_utils import train_eval_utils as utils
 
+# from torch.utils.tensorboard import SummaryWriter
+
+
+
 
 def create_model(num_classes, load_pretrain_weights=True):
     # 注意，这里的backbone默认使用的是FrozenBatchNorm2d，即不会去更新bn参数
@@ -45,7 +49,7 @@ def main(args):
     print("Using {} device training.".format(device.type))
 
     # 用来保存coco_info的文件
-    results_file = "results{}.txt".format(datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
+    results_file = "results_fpn{}.txt".format(datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
 
     data_transform = {
         "train": transforms.Compose([transforms.ToTensor(),
@@ -121,10 +125,13 @@ def main(args):
                                                    step_size=3,
                                                    gamma=0.33)
 
+    # print(lr_scheduler)
     # 如果指定了上次训练保存的权重文件地址，则接着上次结果接着训练
     if args.resume != "":
         checkpoint = torch.load(args.resume, map_location='cpu')
         model.load_state_dict(checkpoint['model'])
+        # print(checkpoint['model'])
+        # print(next(model.parameters()).device)
         optimizer.load_state_dict(checkpoint['optimizer'])
         lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
         args.start_epoch = checkpoint['epoch'] + 1
@@ -135,6 +142,14 @@ def main(args):
     train_loss = []
     learning_rate = []
     val_map = []
+
+    # 构建一个可视化类
+    # tb_writer = SummaryWriter(log_dir='TensorBoardLogs')
+    # 操作步骤：
+    # 服务器命令行：tensorboard --logdir TensorBoardLogs --port=8091
+    # 本机命令行（端口映射）：ssh goujiaxiang@205machine3.top -p 2333 -L 8090:127.0.0.1:8091
+    # 本机浏览器：http://localhost:8090/
+    # 注：visdom操作步骤类似：1、python -m visdom.server在终端启动 2、端口映射（visdom默认端口号为8097） 3、本机浏览器访问即可
 
     for epoch in range(args.start_epoch, args.epochs):
         # train for one epoch, printing every 10 iterations
@@ -150,6 +165,14 @@ def main(args):
 
         # evaluate on the test dataset
         coco_info = utils.evaluate(model, val_data_set_loader, device=device)
+
+        # # 写入tensorboard，可通过网页打开查看相关信息
+        # if tb_writer:
+        #     tags = ['mean_loss', 'lr', 'map']
+        #
+        #     for x, tag in zip([mean_loss.item(), lr, coco_info[1]], tags):
+        #         # 以epoch为横坐标，x为竖坐标，tag为标题来进行更新
+        #         tb_writer.add_scalar(tag, x, epoch)
 
         # write into txt
         with open(results_file, "a") as f:
@@ -168,17 +191,20 @@ def main(args):
             'epoch': epoch}
         if args.amp:
             save_files["scaler"] = scaler.state_dict()
-        torch.save(save_files, "./save_weights/resNetFpn-model-{}.pth".format(epoch))
+        torch.save(save_files, args.output_dir + "/resNetFpn-model-{}.pth".format(epoch))
+
+    # tb_writer.close()
+    # print(model.state_dict())
 
     # plot loss and lr curve
     if len(train_loss) != 0 and len(learning_rate) != 0:
         from plot_curve import plot_loss_and_lr
-        plot_loss_and_lr(train_loss, learning_rate)
+        plot_loss_and_lr(train_loss, learning_rate, 'res50fpn')
 
     # plot mAP curve
     if len(val_map) != 0:
         from plot_curve import plot_map
-        plot_map(val_map)
+        plot_map(val_map, 'res50fpn')
 
 
 if __name__ == "__main__":
@@ -188,15 +214,15 @@ if __name__ == "__main__":
         description=__doc__)
 
     # 训练设备类型
-    parser.add_argument('--device', default='cuda:0', help='device')
+    parser.add_argument('--device', default='cuda:1', help='device')
     # 训练数据集的根目录(VOCdevkit)
     parser.add_argument('--data-path', default='./', help='dataset')
     # 检测目标类别数(不包含背景)
     parser.add_argument('--num-classes', default=20, type=int, help='num_classes')
     # 文件保存地址
-    parser.add_argument('--output-dir', default='./save_weights', help='path where to save')
+    parser.add_argument('--output-dir', default='./save_weights_fpn', help='path where to save')
     # 若需要接着上次训练，则指定上次训练保存权重文件地址
-    parser.add_argument('--resume', default='', type=str, help='resume from checkpoint')
+    parser.add_argument('--resume', default='./save_weights_fpn/resNetFpn-model-11.pth', type=str, help='resume from checkpoint')
     # 指定接着从哪个epoch数开始训练
     parser.add_argument('--start_epoch', default=0, type=int, help='start epoch')
     # 训练的总epoch数
@@ -218,7 +244,7 @@ if __name__ == "__main__":
                         help='batch size when training.')
     parser.add_argument('--aspect-ratio-group-factor', default=3, type=int)
     # 是否使用混合精度训练(需要GPU支持混合精度)
-    parser.add_argument("--amp", default=False, help="Use torch.cuda.amp for mixed precision training")
+    parser.add_argument("--amp", default=True, help="Use torch.cuda.amp for mixed precision training")
 
     args = parser.parse_args()
     print(args)

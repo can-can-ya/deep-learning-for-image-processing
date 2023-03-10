@@ -176,6 +176,7 @@ class MetricLogger(object):
     def add_meter(self, name, meter):
         self.meters[name] = meter
 
+    # def log_every(self, iterable, print_freq, device, header=None):
     def log_every(self, iterable, print_freq, header=None):
         i = 0
         if not header:
@@ -203,6 +204,7 @@ class MetricLogger(object):
         MB = 1024.0 * 1024.0
         for obj in iterable:
             data_time.update(time.time() - end)
+            # print(obj)
             yield obj
             iter_time.update(time.time() - end)
             if i % print_freq == 0 or i == len(iterable) - 1:
@@ -212,8 +214,9 @@ class MetricLogger(object):
                     print(log_msg.format(i, len(iterable),
                                          eta=eta_string,
                                          meters=str(self),
-                                         time=str(iter_time),
-                                         data=str(data_time),
+                                         time=str(iter_time), # 一次迭代时间
+                                         data=str(data_time), # 每次取数据的时间
+                                         # memory=torch.cuda.max_memory_allocated(device) / MB)) # 返回指定设备的内存使用峰值（单位：Mb）
                                          memory=torch.cuda.max_memory_allocated() / MB))
                 else:
                     print(log_msg.format(i, len(iterable),
@@ -301,6 +304,7 @@ def init_distributed_mode(args):
     if 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
         args.rank = int(os.environ["RANK"])
         args.world_size = int(os.environ['WORLD_SIZE'])
+        # print(args.world_size)
         args.gpu = int(os.environ['LOCAL_RANK'])
     elif 'SLURM_PROCID' in os.environ:
         args.rank = int(os.environ['SLURM_PROCID'])
@@ -316,6 +320,8 @@ def init_distributed_mode(args):
     args.dist_backend = 'nccl'
     print('| distributed init (rank {}): {}'.format(
         args.rank, args.dist_url), flush=True)
+    # print(args.gpu)
+    # print(args)
     torch.distributed.init_process_group(backend=args.dist_backend, init_method=args.dist_url,
                                          world_size=args.world_size, rank=args.rank)
     # 使用torch1.9或以上时建议加上device_ids=[args.rank]

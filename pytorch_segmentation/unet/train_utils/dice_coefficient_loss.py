@@ -28,11 +28,11 @@ def dice_coeff(x: torch.Tensor, target: torch.Tensor, ignore_index: int = -100, 
         if ignore_index >= 0:
             # 找出mask中不为ignore_index的区域
             roi_mask = torch.ne(t_i, ignore_index)
-            x_i = x_i[roi_mask]
+            x_i = x_i[roi_mask] # x_i尺寸减小
             t_i = t_i[roi_mask]
         inter = torch.dot(x_i, t_i)
         sets_sum = torch.sum(x_i) + torch.sum(t_i)
-        if sets_sum == 0:
+        if sets_sum == 0: # 多余
             sets_sum = 2 * inter
 
         d += (2 * inter + epsilon) / (sets_sum + epsilon)

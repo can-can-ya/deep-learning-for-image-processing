@@ -13,7 +13,7 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch,
                     print_freq=50, warmup=False, scaler=None):
     model.train()
     metric_logger = utils.MetricLogger(delimiter="  ")
-    metric_logger.add_meter('lr', utils.SmoothedValue(window_size=1, fmt='{value:.6f}'))
+    metric_logger.add_meter('lr', utils.SmoothedValue(window_size=5, fmt='{value:.6f}'))
     header = 'Epoch: [{}]'.format(epoch)
 
     lr_scheduler = None
@@ -24,22 +24,33 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch,
         lr_scheduler = utils.warmup_lr_scheduler(optimizer, warmup_iters, warmup_factor)
 
     mloss = torch.zeros(1).to(device)  # mean losses
+    # for i, [images, targets] in enumerate(metric_logger.log_every(data_loader, print_freq, device, header)): # 指定设备，可以打印出设备的内存使用峰值
     for i, [images, targets] in enumerate(metric_logger.log_every(data_loader, print_freq, header)):
+        # print(images)
+        # images = list(image.cuda(device) for image in images) # 也可以用来数据复制到GPU
+        # print(images)
         images = list(image.to(device) for image in images)
         targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
 
         # 混合精度训练上下文管理器，如果在CPU环境中不起任何作用
         with torch.cuda.amp.autocast(enabled=scaler is not None):
             loss_dict = model(images, targets)
+            # print(loss_dict)
             losses = sum(loss for loss in loss_dict.values())
+            # print(losses)
 
         # reduce losses over all GPUs for logging purpose
+        # print(loss_dict)
         loss_dict_reduced = utils.reduce_dict(loss_dict)
+        # print(loss_dict_reduced)
         losses_reduced = sum(loss for loss in loss_dict_reduced.values())
+        # print(losses_reduced)
 
         loss_value = losses_reduced.item()
+        # print(loss_value)
         # 记录训练损失
         mloss = (mloss * i + loss_value) / (i + 1)  # update mean losses
+        # print(mloss)
 
         if not math.isfinite(loss_value):  # 当计算的损失为无穷大时停止训练
             print("Loss is {}, stopping training".format(loss_value))
@@ -60,6 +71,7 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch,
 
         metric_logger.update(loss=losses_reduced, **loss_dict_reduced)
         now_lr = optimizer.param_groups[0]["lr"]
+        # print(now_lr)
         metric_logger.update(lr=now_lr)
 
     return mloss, now_lr
@@ -77,6 +89,7 @@ def evaluate(model, data_loader, device):
     iou_types = _get_iou_types(model)
     coco_evaluator = CocoEvaluator(coco, iou_types)
 
+    # for image, targets in metric_logger.log_every(data_loader, 100, device, header):
     for image, targets in metric_logger.log_every(data_loader, 100, header):
         image = list(img.to(device) for img in image)
 

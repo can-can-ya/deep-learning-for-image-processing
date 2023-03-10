@@ -39,7 +39,7 @@ def create_model(num_classes):
 
 
 def main():
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
     print("Using {} device training.".format(device.type))
 
     # 用来保存coco_info的文件
@@ -58,7 +58,7 @@ def main():
     VOC_root = "./"  # VOCdevkit
     aspect_ratio_group_factor = 3
     batch_size = 8
-    amp = False  # 是否使用混合精度训练，需要GPU支持
+    amp = True  # 是否使用混合精度训练，需要GPU支持
 
     # check voc root
     if os.path.exists(os.path.join(VOC_root, "VOCdevkit")) is False:
@@ -128,7 +128,7 @@ def main():
 
     # define optimizer
     params = [p for p in model.parameters() if p.requires_grad]
-    optimizer = torch.optim.SGD(params, lr=0.005,
+    optimizer = torch.optim.SGD(params, lr=0.01,
                                 momentum=0.9, weight_decay=0.0005)
 
     init_epochs = 5
@@ -175,7 +175,7 @@ def main():
     lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
                                                    step_size=3,
                                                    gamma=0.33)
-    num_epochs = 20
+    num_epochs = 5
     for epoch in range(init_epochs, num_epochs+init_epochs, 1):
         # train for one epoch, printing every 50 iterations
         mean_loss, lr = utils.train_one_epoch(model, optimizer, train_data_loader,
@@ -200,8 +200,8 @@ def main():
         val_map.append(coco_info[1])  # pascal mAP
 
         # save weights
-        # 仅保存最后5个epoch的权重
-        if epoch in range(num_epochs+init_epochs)[-5:]:
+        # 仅保存最后1个epoch的权重
+        if epoch in range(num_epochs+init_epochs)[-1:]:
             save_files = {
                 'model': model.state_dict(),
                 'optimizer': optimizer.state_dict(),
@@ -212,13 +212,15 @@ def main():
     # plot loss and lr curve
     if len(train_loss) != 0 and len(learning_rate) != 0:
         from plot_curve import plot_loss_and_lr
-        plot_loss_and_lr(train_loss, learning_rate)
+        plot_loss_and_lr(train_loss, learning_rate, 'mobilenetv2')
 
     # plot mAP curve
     if len(val_map) != 0:
         from plot_curve import plot_map
-        plot_map(val_map)
+        plot_map(val_map, 'mobilenetv2')
 
 
 if __name__ == "__main__":
     main()
+
+# 19:52->20:27:5次迭代

@@ -20,7 +20,7 @@ from train_utils import get_coco_api_from_dataset, CocoEvaluator
 def summarize(self, catId=None):
     """
     Compute and display summary metrics for evaluation results.
-    Note this functin can *only* be applied on the default parameter setting
+    Note this function can *only* be applied on the default parameter setting
     """
 
     def _summarize(ap=1, iouThr=None, areaRng='all', maxDets=100):
@@ -118,7 +118,7 @@ def main(parser_data):
     # load validation data set
     val_dataset = VOCDataSet(VOC_root, "2012", data_transform["val"], "val.txt")
     val_dataset_loader = torch.utils.data.DataLoader(val_dataset,
-                                                     batch_size=1,
+                                                     batch_size=batch_size,
                                                      shuffle=False,
                                                      num_workers=nw,
                                                      pin_memory=True,
@@ -132,9 +132,7 @@ def main(parser_data):
     # 载入你自己训练好的模型权重
     weights_path = parser_data.weights_path
     assert os.path.exists(weights_path), "not found {} file.".format(weights_path)
-    weights_dict = torch.load(weights_path, map_location='cpu')
-    weights_dict = weights_dict["model"] if "model" in weights_dict else weights_dict
-    model.load_state_dict(weights_dict)
+    model.load_state_dict(torch.load(weights_path, map_location='cpu')['model'])
     # print(model)
 
     model.to(device)
@@ -200,10 +198,10 @@ if __name__ == "__main__":
     parser.add_argument('--num-classes', type=int, default='20', help='number of classes')
 
     # 数据集的根目录(VOCdevkit)
-    parser.add_argument('--data-path', default='/data/', help='dataset root')
+    parser.add_argument('--data-path', default='./', help='dataset root')
 
     # 训练好的权重文件
-    parser.add_argument('--weights-path', default='./save_weights/model.pth', type=str, help='training weights')
+    parser.add_argument('--weights-path', default='./save_weights_fpn/resNetFpn-model-0.pth', type=str, help='training weights')
 
     # batch size
     parser.add_argument('--batch_size', default=1, type=int, metavar='N',

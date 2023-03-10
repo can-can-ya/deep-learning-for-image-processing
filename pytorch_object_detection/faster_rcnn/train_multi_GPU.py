@@ -37,12 +37,11 @@ def create_model(num_classes):
 
 def main(args):
     init_distributed_mode(args)
-    print(args)
 
     device = torch.device(args.device)
 
     # 用来保存coco_info的文件
-    results_file = "results{}.txt".format(datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
+    results_file = "multi_GPU_results{}.txt".format(datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
 
     # Data loading code
     print("Loading data")
@@ -68,6 +67,7 @@ def main(args):
 
     print("Creating data loaders")
     if args.distributed:
+        # train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset, shuffle = True) # 可以这里指定shuffle
         train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
         test_sampler = torch.utils.data.distributed.DistributedSampler(val_dataset)
     else:
@@ -182,12 +182,12 @@ def main(args):
         # plot loss and lr curve
         if len(train_loss) != 0 and len(learning_rate) != 0:
             from plot_curve import plot_loss_and_lr
-            plot_loss_and_lr(train_loss, learning_rate)
+            plot_loss_and_lr(train_loss, learning_rate, 'multi_GPU')
 
         # plot mAP curve
         if len(val_map) != 0:
             from plot_curve import plot_map
-            plot_map(val_map)
+            plot_map(val_map, 'multi_GPU')
 
 
 if __name__ == "__main__":
@@ -203,18 +203,18 @@ if __name__ == "__main__":
     # 检测目标类别数(不包含背景)
     parser.add_argument('--num-classes', default=20, type=int, help='num_classes')
     # 每块GPU上的batch_size
-    parser.add_argument('-b', '--batch-size', default=4, type=int,
+    parser.add_argument('-b', '--batch-size', default=1, type=int,
                         help='images per gpu, the total batch size is $NGPU x batch_size')
     # 指定接着从哪个epoch数开始训练
     parser.add_argument('--start_epoch', default=0, type=int, help='start epoch')
     # 训练的总epoch数
-    parser.add_argument('--epochs', default=20, type=int, metavar='N',
+    parser.add_argument('--epochs', default=10, type=int, metavar='N',
                         help='number of total epochs to run')
     # 数据加载以及预处理的线程数
     parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
                         help='number of data loading workers (default: 4)')
-    # 学习率，这个需要根据gpu的数量以及batch_size进行设置0.02 / 8 * num_GPU
-    parser.add_argument('--lr', default=0.02, type=float,
+    # 学习率，这个需要根据gpu的数量以及batch_size进行设置0.02 (8 gpus and 2 images_per_gpu)
+    parser.add_argument('--lr', default=0.01, type=float,
                         help='initial learning rate, 0.02 is the default value for training '
                              'on 8 gpus and 2 images_per_gpu')
     # SGD的momentum参数
@@ -225,10 +225,10 @@ if __name__ == "__main__":
                         metavar='W', help='weight decay (default: 1e-4)',
                         dest='weight_decay')
     # 针对torch.optim.lr_scheduler.StepLR的参数
-    parser.add_argument('--lr-step-size', default=8, type=int, help='decrease lr every step-size epochs')
+    parser.add_argument('--lr-step-size', default=4, type=int, help='decrease lr every step-size epochs')
     # 针对torch.optim.lr_scheduler.MultiStepLR的参数
-    parser.add_argument('--lr-steps', default=[7, 12], nargs='+', type=int, help='decrease lr every step-size epochs')
-    # 针对torch.optim.lr_scheduler.MultiStepLR的参数
+    parser.add_argument('--lr-steps', default=[5, 8], nargs='+', type=int, help='decrease lr every step-size epochs')
+    # 针对torch.optim.lr_scheduler.MultiStepLR和StepLR的参数
     parser.add_argument('--lr-gamma', default=0.1, type=float, help='decrease lr by a factor of lr-gamma')
     # 训练过程打印信息的频率
     parser.add_argument('--print-freq', default=20, type=int, help='print frequency')
@@ -249,11 +249,12 @@ if __name__ == "__main__":
     parser.add_argument('--world-size', default=4, type=int,
                         help='number of distributed processes')
     parser.add_argument('--dist-url', default='env://', help='url used to set up distributed training')
-    parser.add_argument("--sync-bn", dest="sync_bn", help="Use sync batch norm", type=bool, default=False)
+    parser.add_argument("--sync-bn", dest="sync_bn", help="Use sync batch norm", type=bool, default=True)
     # 是否使用混合精度训练(需要GPU支持混合精度)
-    parser.add_argument("--amp", default=False, help="Use torch.cuda.amp for mixed precision training")
+    parser.add_argument("--amp", default=True, help="Use torch.cuda.amp for mixed precision training")
 
     args = parser.parse_args()
+    print(args)
 
     # 如果指定了保存文件地址，检查文件夹是否存在，若不存在，则创建
     if args.output_dir:
