@@ -147,7 +147,7 @@ def main(args):
     # tb_writer = SummaryWriter(log_dir='TensorBoardLogs')
     # 操作步骤：
     # 服务器命令行：tensorboard --logdir TensorBoardLogs --port=8091
-    # 本机命令行（端口映射）：ssh goujiaxiang@205machine3.top -p 2333 -L 8090:127.0.0.1:8091
+    # 本机命令行（端口映射）：ssh goujiaxiang@machines2023.top -p 6662 -L 8090:127.0.0.1:8091
     # 本机浏览器：http://localhost:8090/
     # 注：visdom操作步骤类似：1、python -m visdom.server在终端启动 2、端口映射（visdom默认端口号为8097） 3、本机浏览器访问即可
 
